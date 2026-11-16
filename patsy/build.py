@@ -64,8 +64,12 @@ def test__max_allowed_dim():
 
 
 def _eval_factor(factor_info, data, NA_action):
+    result = factor_info.factor.eval(factor_info.state, data)
+    return _finish_eval_factor(factor_info, result, NA_action)
+
+
+def _finish_eval_factor(factor_info, result, NA_action):
     factor = factor_info.factor
-    result = factor.eval(factor_info.state, data)
     # Returns either a 2d ndarray, or a DataFrame, plus is_NA mask
     if factor_info.type == "numerical":
         result = atleast_2d_column_default(result, preserve_pandas=True)
@@ -741,7 +745,15 @@ def design_matrix_builders(termlists, data_iter_maker, eval_env, NA_action="drop
         for term in termlist:
             all_factors.update(term.factors)
     factor_states = _factors_memorize(all_factors, data_iter_maker, eval_env)
-    # Now all the factors have working eval methods, so we can evaluate them
+    return _design_infos_from_factor_states(
+        termlists, all_factors, factor_states, data_iter_maker, NA_action
+    )
+
+
+def _design_infos_from_factor_states(
+    termlists, all_factors, factor_states, data_iter_maker, NA_action
+):
+    # All the factors have working eval methods, so we can evaluate them
     # on some data to find out what type of data they return.
     (num_column_counts, cat_levels_contrasts) = _examine_factor_types(
         all_factors, factor_states, data_iter_maker, NA_action
@@ -935,6 +947,18 @@ def build_design_matrices(
             "unrecognized output type %r, should be "
             "'matrix' or 'dataframe'" % (return_type,)
         )
+
+    def factor_eval_fn(factor_info):
+        return _eval_factor(factor_info, data, NA_action)
+
+    return _build_design_matrices(
+        design_infos, data, NA_action, return_type, dtype, factor_eval_fn
+    )
+
+
+def _build_design_matrices(
+    design_infos, data, NA_action, return_type, dtype, factor_eval_fn
+):
     # Evaluate factors
     factor_info_to_values = {}
     factor_info_to_isNAs = {}
@@ -949,7 +973,7 @@ def build_design_matrices(
         # memorized state.
         for factor_info in design_info.factor_infos.values():
             if factor_info not in factor_info_to_values:
-                value, is_NA = _eval_factor(factor_info, data, NA_action)
+                value, is_NA = factor_eval_fn(factor_info)
                 factor_info_to_isNAs[factor_info] = is_NA
                 # value may now be a Series, DataFrame, or ndarray
                 name = factor_info.factor.name()

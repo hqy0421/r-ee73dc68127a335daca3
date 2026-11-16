@@ -229,6 +229,10 @@ Building design matrices
 
 .. autofunction:: build_design_matrices
 
+.. autofunction:: shared_design_matrix_builders
+
+.. autofunction:: build_shared_design_matrices
+
 Missing values
 --------------
 

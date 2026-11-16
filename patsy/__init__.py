@@ -92,6 +92,10 @@ import patsy.build
 
 _reexport(patsy.build)
 
+import patsy.shared_build
+
+_reexport(patsy.shared_build)
+
 import patsy.constraint
 
 _reexport(patsy.constraint)
